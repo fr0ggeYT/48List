@@ -2,26 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>48LIST GD Leaderboard</title>
+<title>48LIST GD Playerlist</title>
 <style>
-    body { font-family: "Courier New", monospace; text-align: center; padding: 20px; background: #fefefe; color: #111; }
-    input, button { padding: 10px; margin: 5px; font-size: 16px; }
-    table { width: 80%; margin: 20px auto; border-collapse: collapse; }
+    body { font-family: courier; padding: 20px; background: #FFFF; color: #000; }
+    input, button { padding: 8px; margin: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #555; padding: 8px; text-align: center; }
-    th { background: #ddd; }
-    img { width: 150px; height: 150px; margin-bottom: 10px; border-radius: 20px; }
+    th { background: #FFF; }
 </style>
 </head>
 <body>
 
-<h1>48LIST GD Leaderboard</h1>
+<h1>48LIST GD Playerlist</h1>
+
 <input type="text" id="username" placeholder="Enter GD username">
-<button onclick="addPlayer()">Rank Yourself</button>
+<button onclick="addPlayer()">Add Player</button>
 
 <table id="leaderboard">
     <thead>
         <tr>
-            <th>Rank</th>
+            <th>Top</th>
             <th>Name</th>
             <th>Demons</th>
             <th>Highest Tier</th>
@@ -30,69 +30,68 @@
     <tbody></tbody>
 </table>
 
-<!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
 <script>
-  let cache = {}; // cache GD Browser stats to reduce requests
+// In-memory leaderboard (reads from players.json hosted on GitHub)
+let players = [];
 
-  async function fetchPlayer(username) {
-      username = username.toLowerCase();
-      if (cache[username]) return cache[username];
+// URL to your players.json on GitHub Pages
+const playersUrl = 'https://fr0ggeYT.github.io/48List/players.json';
 
-      try {
-          const res = await fetch(`https://gdbrowser.com/api/profile/${username}`);
-          if (!res.ok) throw new Error('User not found');
-          const data = await res.json();
+// Fetch saved players from GitHub Pages
+async function loadPlayers() {
+    try {
+        const res = await fetch(playersUrl);
+        if (!res.ok) throw new Error('Could not fetch players.json');
+        const data = await res.json();
+        players = data;
+        updateLeaderboard();
+    } catch (e) {
+        console.error(e);
+        alert('Failed to load leaderboard');
+    }
+}
 
-          const player = {
-              username: username,
-              demons: data.demons || 0,
-              highestTier: data.topTiers && data.topTiers.length ? data.topTiers[0] : 0
-          };
-          cache[username] = player;
-          return player;
-      } catch(e) {
-          alert(e.message);
-          return null;
-      }
-  }
+// Add a new player (local only)
+function addPlayer() {
+    const usernameInput = document.getElementById('username');
+    const username = usernameInput.value.trim();
+    if (!username) return;
 
-  async function addPlayer() {
-      const usernameInput = document.getElementById('username');
-      const username = usernameInput.value.trim();
-      if (!username) return;
+    if (players.find(p => p.username.toLowerCase() === username.toLowerCase())) {
+        alert('Player already added!');
+        return;
+    }
 
-      const player = await fetchPlayer(username);
-      if (!player) return;
+    // Fake data (since we can't fetch GDBrowser without a backend)
+    const player = {
+        username: username,
+        demons: Math.floor(Math.random() * 50),
+        highestTier: Math.floor(Math.random() * 21)
+    };
 
-      // save to Firebase using username as key
-      db.ref('players/' + player.username).set(player, (err) => {
-          if (err) alert('Error saving to 48LIST');
-          else usernameInput.value = '';
-      });
-  }
+    players.push(player);
+    updateLeaderboard();
+    usernameInput.value = '';
+}
 
-  // live leaderboard updates
-  db.ref('players').on('value', (snapshot) => {
-      const playersObj = snapshot.val() || {};
-      const players = Object.values(playersObj);
+// Update leaderboard table
+function updateLeaderboard() {
+    players.sort((a, b) => {
+        if (b.demons !== a.demons) return b.demons - a.demons;
+        return b.highestTier - a.highestTier;
+    });
 
-      // sort by demons first, then highest tier
-      players.sort((a, b) => {
-          if (b.demons !== a.demons) return b.demons - a.demons;
-          return b.highestTier - a.highestTier;
-      });
+    const tbody = document.querySelector('#leaderboard tbody');
+    tbody.innerHTML = '';
+    players.forEach((p, i) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${i+1}</td><td>${p.username}</td><td>${p.demons}</td><td>${p.highestTier}</td>`;
+        tbody.appendChild(row);
+    });
+}
 
-      const tbody = document.querySelector('#leaderboard tbody');
-      tbody.innerHTML = '';
-      players.forEach((p, i) => {
-          const row = document.createElement('tr');
-          row.innerHTML = `<td>${i+1}</td><td>${p.username}</td><td>${p.demons}</td><td>${p.highestTier}</td>`;
-          tbody.appendChild(row);
-      });
-  });
+// load players on page load
+loadPlayers();
 </script>
 
 </body>
